@@ -13,11 +13,9 @@ def chunk_segments(
     for segment in segments:
         text = segment["text"]
         start = 0
-        text_length = len(text)
 
-        while start < text_length:
+        while start < len(text):
             end = start + chunk_size
-
             chunk_text = text[start:end]
 
             chunks.append({
@@ -29,8 +27,6 @@ def chunk_segments(
             })
 
             chunk_id += 1
-
-            # Move window forward with overlap
             start += chunk_size - overlap
 
     return chunks

@@ -3,18 +3,12 @@ from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import uuid
 
-# Load local embedding model (loads once)
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Initialize Chroma client
 chroma_client = chromadb.Client(
-    Settings(
-        persist_directory="chroma_storage",
-        anonymized_telemetry=False
-    )
+    Settings(persist_directory="chroma_storage")
 )
 
-# Global collection
 collection = chroma_client.get_or_create_collection(
     name="financial_documents"
 )
@@ -35,11 +29,9 @@ def store_chunks(chunks, company_name="Unknown", quarter="Unknown"):
     for chunk in chunks:
         chunk_unique_id = f"{document_id}_{chunk['chunk_id']}"
 
-        embedding = generate_embedding(chunk["text"])
-
         ids.append(chunk_unique_id)
         documents.append(chunk["text"])
-        embeddings.append(embedding)
+        embeddings.append(generate_embedding(chunk["text"]))
 
         metadatas.append({
             "document_id": document_id,

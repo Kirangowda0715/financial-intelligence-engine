@@ -1,8 +1,14 @@
 import pdfplumber
 from typing import Dict, List
 
+MIN_CHAR_THRESHOLD_PER_PAGE = 50
 
-MIN_CHAR_THRESHOLD_PER_PAGE = 50  # Used to detect scanned PDFs
+
+def clean_text(text: str) -> str:
+    text = text.strip()
+    text = text.replace("\r\n", "\n")
+    text = "\n".join(line.strip() for line in text.split("\n"))
+    return text
 
 
 def extract_pdf_content(file_path: str) -> Dict:
@@ -30,27 +36,13 @@ def extract_pdf_content(file_path: str) -> Dict:
                 "text": cleaned_text
             })
 
-    # Detect likely scanned PDF
-    avg_chars_per_page = total_characters / total_pages if total_pages > 0 else 0
+    avg_chars = total_characters / total_pages if total_pages > 0 else 0
 
-    if avg_chars_per_page < MIN_CHAR_THRESHOLD_PER_PAGE:
-        raise ValueError("This appears to be a scanned PDF. Digital PDFs only supported in V1.")
+    if avg_chars < MIN_CHAR_THRESHOLD_PER_PAGE:
+        raise ValueError("Scanned PDF not supported.")
 
     return {
         "total_pages": total_pages,
         "total_characters": total_characters,
-        "average_characters_per_page": avg_chars_per_page,
         "pages": pages_data
     }
-
-
-def clean_text(text: str) -> str:
-    """
-    Basic cleaning:
-    - Strip extra spaces
-    - Normalize line breaks
-    """
-    text = text.strip()
-    text = text.replace("\r\n", "\n")
-    text = "\n".join(line.strip() for line in text.split("\n"))
-    return text
