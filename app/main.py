@@ -75,6 +75,18 @@ async def query_documents(
             section_type=section_type
         )
 
+        # Guard: if nothing was retrieved, return early with a helpful message
+        if not retrieved:
+            return {
+                "query": query,
+                "answer": (
+                    "⚠️ No relevant content found in your uploaded documents for this query. "
+                    "Please make sure you have uploaded a PDF and the document is indexed, "
+                    "then try rephrasing your question."
+                ),
+                "sources": []
+            }
+
         answer = generate_answer(query, retrieved)
 
         return {
@@ -87,11 +99,11 @@ async def query_documents(
             "answer": answer,
             "sources": [
                 {
-                    "speaker": r["metadata"]["speaker_name"],
-                    "role": r["metadata"]["speaker_role"],
-                    "section": r["metadata"]["section_type"],
-                    "company": r["metadata"]["company"],
-                    "quarter": r["metadata"]["quarter"],
+                    "speaker": r["metadata"].get("speaker_name", "Unknown"),
+                    "role": r["metadata"].get("speaker_role", "Unknown"),
+                    "section": r["metadata"].get("section_type", "Unknown"),
+                    "company": r["metadata"].get("company", "Unknown"),
+                    "quarter": r["metadata"].get("quarter", "Unknown"),
                     "score": r["score"]
                 }
                 for r in retrieved
@@ -99,7 +111,13 @@ async def query_documents(
         }
 
     except Exception as e:
-        return {"error": str(e)}
+        # Return error inside answer key so the frontend can display it
+        return {
+            "query": query,
+            "answer": f"❌ Backend error: {str(e)}",
+            "sources": []
+        }
+
 
 @app.get("/advanced-summary/")
 async def advanced_summary_endpoint(document_id: str):
@@ -112,6 +130,7 @@ async def advanced_summary_endpoint(document_id: str):
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/metrics/")
 async def metrics_endpoint(document_id: str):
     try:
@@ -122,6 +141,7 @@ async def metrics_endpoint(document_id: str):
         return {"metrics": metrics}
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.get("/risks/")
 async def risks_endpoint(document_id: str):

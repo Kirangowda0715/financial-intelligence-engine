@@ -4,18 +4,23 @@ from app.embedding_store import collection, generate_embedding
 def retrieve_chunks(query, top_k=8, company=None, quarter=None, section_type=None):
     query_embedding = generate_embedding(query)
 
-    filters = {}
+    conditions = []
 
     if company:
-        filters["company"] = company
+        conditions.append({"company": company})
 
     if quarter:
-        filters["quarter"] = quarter
+        conditions.append({"quarter": quarter})
 
     if section_type:
-        filters["section_type"] = section_type
+        conditions.append({"section_type": section_type})
 
-    where_clause = filters if filters else None
+    if len(conditions) == 1:
+        where_clause = conditions[0]
+    elif len(conditions) > 1:
+        where_clause = {"$and": conditions}
+    else:
+        where_clause = None
 
     results = collection.query(
         query_embeddings=[query_embedding],

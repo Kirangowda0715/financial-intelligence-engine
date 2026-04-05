@@ -1,13 +1,11 @@
 import chromadb
-from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import uuid
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-chroma_client = chromadb.Client(
-    Settings(persist_directory="chroma_storage")
-)
+# ChromaDB 1.x requires PersistentClient, not Client+Settings
+chroma_client = chromadb.PersistentClient(path="chroma_storage")
 
 collection = chroma_client.get_or_create_collection(
     name="financial_documents"
@@ -37,9 +35,9 @@ def store_chunks(chunks, company_name="Unknown", quarter="Unknown"):
             "document_id": document_id,
             "company": company_name,
             "quarter": quarter,
-            "speaker_name": chunk["speaker_name"],
-            "speaker_role": chunk["speaker_role"],
-            "section_type": chunk["section_type"]
+            "speaker_name": chunk.get("speaker_name", "Unknown"),
+            "speaker_role": chunk.get("speaker_role", "Unknown"),
+            "section_type": chunk.get("section_type", "Unknown")
         })
 
     collection.add(
