@@ -174,44 +174,48 @@ with st.sidebar.form("upload_form", clear_on_submit=True):
 if submitted:
     if uploaded_files and company and quarter:
         success_count = 0
-        for f in uploaded_files:
-            with st.spinner(f"Processing {f.name}..."):
-                files = {"file": (f.name, f, "application/pdf")}
-                data_payload = {"company": company, "quarter": quarter}
-                res = requests.post(f"{API_URL}/upload-pdf/", files=files, data=data_payload)
+        with st.spinner(f"Processing Batch of {len(uploaded_files)} files..."):
+            files = [("files", (f.name, f.getvalue(), "application/pdf")) for f in uploaded_files]
+            data_payload = {"company": company, "quarter": quarter}
+            res = requests.post(f"{API_URL}/upload-pdf/", files=files, data=data_payload)
 
-                if res.status_code == 200:
-                    response = res.json()
-                    doc_id = response.get("document_id")
-                    summary = response.get("investor_summary", "No summary available.")
+            if res.status_code == 200:
+                response = res.json()
+                if "error" in response:
+                    st.sidebar.error(f"Backend Upload Error: {response['error']}")
+                    st.stop()
 
-                    if not any(d["id"] == doc_id for d in st.session_state["documents"]):
-                        st.session_state["documents"].append({
-                            "id": doc_id,
-                            "company": company,
-                            "quarter": quarter,
-                            "summary": summary,
-                            "filename": f.name
-                        })
+                doc_ids = response.get("document_ids", [])
+                summary = response.get("investor_summary", "No summary available.")
+                
+                combined_names = ", ".join([f.name for f in uploaded_files])
+                combined_ids = ",".join(doc_ids)
 
-                    # Auto-name the chat if it's "New Chat"
-                    active_chat = st.session_state["chat_sessions"][st.session_state["active_chat_id"]]
-                    if active_chat["name"] == "New Chat":
-                        st.session_state["chat_sessions"][st.session_state["active_chat_id"]]["name"] = f"{company} {quarter}"
+                if not any(d["id"] == combined_ids for d in st.session_state["documents"]):
+                    st.session_state["documents"].append({
+                        "id": combined_ids,
+                        "company": company,
+                        "quarter": quarter,
+                        "summary": summary,
+                        "filename": combined_names
+                    })
 
-                    # Add upload confirmation + summary as a chat message
-                    upload_msg = (
-                        f"📄 **Document uploaded:** `{f.name}` ({company} — {quarter})\n\n"
-                        f"---\n### 📈 Investor Summary\n\n{summary}"
-                    )
-                    add_to_chat("assistant", upload_msg, tag="upload")
-                    success_count += 1
-                else:
-                    st.sidebar.error(f"Error: {f.name}")
+                active_chat = st.session_state["chat_sessions"][st.session_state["active_chat_id"]]
+                if active_chat["name"] == "New Chat":
+                    st.session_state["chat_sessions"][st.session_state["active_chat_id"]]["name"] = f"{company} {quarter}"
+
+                upload_msg = (
+                    f"📄 **Batch Processed ({len(uploaded_files)} docs):** `{combined_names}` ({company} — {quarter})\n\n"
+                    f"---\n### 📈 Investor Summary\n\n{summary}"
+                )
+                add_to_chat("assistant", upload_msg, tag="upload")
+                success_count = len(uploaded_files)
+            else:
+                st.sidebar.error("Error processing batch upload.")
 
         if success_count > 0:
             save_state()
-            st.sidebar.success(f"✅ {success_count} file(s) uploaded!")
+            st.sidebar.success(f"✅ {success_count} file(s) batch processed!")
             st.rerun()
     else:
         st.sidebar.warning("Please fill all fields and select files.")
@@ -256,12 +260,16 @@ with col_tools[0]:
         if st.session_state["documents"]:
             doc = st.session_state["documents"][-1]
             with st.spinner("Generating executive summary..."):
-                res = requests.get(f"{API_URL}/advanced-summary/", params={"document_id": doc["id"]})
+                res = requests.get(f"{API_URL}/advanced-summary/", params={"document_ids": doc["id"]})
                 if res.status_code == 200:
-                    summary = res.json().get("advanced_summary", "No summary generated.")
-                    msg = f"📋 **Executive Summary** — _{doc['company']} {doc['quarter']}_\n\n---\n\n{summary}"
-                    add_to_chat("assistant", msg, tag="summary")
-                    st.rerun()
+                    data = res.json()
+                    if "error" in data:
+                        st.error(f"Backend Error: {data['error']}")
+                    else:
+                        summary = data.get("advanced_summary", "No summary generated.")
+                        msg = f"📋 **Executive Summary** — _{doc['company']} {doc['quarter']}_\n\n---\n\n{summary}"
+                        add_to_chat("assistant", msg, tag="summary")
+                        st.rerun()
                 else:
                     st.error("Failed to generate summary.")
         else:
@@ -272,20 +280,24 @@ with col_tools[1]:
         if st.session_state["documents"]:
             doc = st.session_state["documents"][-1]
             with st.spinner("Extracting financial metrics..."):
-                res = requests.get(f"{API_URL}/metrics/", params={"document_id": doc["id"]})
+                res = requests.get(f"{API_URL}/metrics/", params={"document_ids": doc["id"]})
                 if res.status_code == 200:
-                    m = res.json().get("metrics", {})
-                    segs = "\n".join([f"  - {s}" for s in m.get("segments", [])]) or "  - Not mentioned"
-                    msg = (
-                        f"📊 **Key Metrics** — _{doc['company']} {doc['quarter']}_\n\n---\n\n"
-                        f"| Metric | Value |\n|---|---|\n"
-                        f"| Revenue Growth | {m.get('revenue_growth') or 'N/A'} |\n"
-                        f"| Margin / EBITDA | {m.get('margin') or 'N/A'} |\n"
-                        f"| Guidance | {m.get('guidance') or 'N/A'} |\n\n"
-                        f"**Segment Performance:**\n{segs}"
-                    )
-                    add_to_chat("assistant", msg, tag="metrics")
-                    st.rerun()
+                    data = res.json()
+                    if "error" in data:
+                        st.error(f"Backend Error: {data['error']}")
+                    else:
+                        m = data.get("metrics", {})
+                        segs = "\n".join([f"  - {s}" for s in m.get("segments", [])]) or "  - Not mentioned"
+                        msg = (
+                            f"📊 **Key Metrics** — _{doc['company']} {doc['quarter']}_\n\n---\n\n"
+                            f"| Metric | Value |\n|---|---|\n"
+                            f"| Revenue Growth | {m.get('revenue_growth') or 'N/A'} |\n"
+                            f"| Margin / EBITDA | {m.get('margin') or 'N/A'} |\n"
+                            f"| Guidance | {m.get('guidance') or 'N/A'} |\n\n"
+                            f"**Segment Performance:**\n{segs}"
+                        )
+                        add_to_chat("assistant", msg, tag="metrics")
+                        st.rerun()
                 else:
                     st.error("Failed to extract metrics.")
         else:
@@ -296,26 +308,30 @@ with col_tools[2]:
         if st.session_state["documents"]:
             doc = st.session_state["documents"][-1]
             with st.spinner("Analyzing risks..."):
-                res = requests.get(f"{API_URL}/risks/", params={"document_id": doc["id"]})
+                res = requests.get(f"{API_URL}/risks/", params={"document_ids": doc["id"]})
                 if res.status_code == 200:
-                    risks = res.json().get("risks", [])
-                    if isinstance(risks, list) and risks:
-                        lines = [f"⚠️ **Risk Profile** — _{doc['company']} {doc['quarter']}_\n\n---\n"]
-                        for r in risks:
-                            if not isinstance(r, dict):
-                                continue
-                            sev = r.get("severity", "Unknown")
-                            emoji = "🔴" if sev.lower() == "high" else ("🟡" if sev.lower() == "medium" else "🟢")
-                            lines.append(
-                                f"{emoji} **{r.get('risk_name','Risk')}** ({sev})\n"
-                                f"> {r.get('description','')}\n"
-                                f"> *Source: {r.get('source_reference','N/A')}*\n"
-                            )
-                        msg = "\n".join(lines)
+                    data = res.json()
+                    if "error" in data:
+                        st.error(f"Backend Error: {data['error']}")
                     else:
-                        msg = f"✅ No major risks identified for _{doc['company']} {doc['quarter']}_."
-                    add_to_chat("assistant", msg, tag="risks")
-                    st.rerun()
+                        risks = data.get("risks", [])
+                        if isinstance(risks, list) and risks:
+                            lines = [f"⚠️ **Risk Profile** — _{doc['company']} {doc['quarter']}_\n\n---\n"]
+                            for r in risks:
+                                if not isinstance(r, dict):
+                                    continue
+                                sev = r.get("severity", "Unknown")
+                                emoji = "🔴" if sev.lower() == "high" else ("🟡" if sev.lower() == "medium" else "🟢")
+                                lines.append(
+                                    f"{emoji} **{r.get('risk_name','Risk')}** ({sev})\n"
+                                    f"> {r.get('description','')}\n"
+                                    f"> *Source: {r.get('source_reference','N/A')}*\n"
+                                )
+                            msg = "\n".join(lines)
+                        else:
+                            msg = f"✅ No major risks identified for _{doc['company']} {doc['quarter']}_."
+                        add_to_chat("assistant", msg, tag="risks")
+                        st.rerun()
                 else:
                     st.error("Failed to extract risks.")
         else:

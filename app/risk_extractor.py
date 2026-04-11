@@ -14,7 +14,7 @@ Given the transcript extract:
 2. Implicit risks based on tone and wording
 3. New risks that appear novel
 
-Output structured JSON ONLY with no backticks, markdown, or conversational text. 
+CRITICAL INSTRUCTION: Output RAW JSON ONLY. Do NOT wrap the JSON in ```json blocks. Do NOT output any conversational text.
 Return an Array of Risk objects.
 
 JSON Format:
@@ -23,7 +23,7 @@ JSON Format:
     "risk_name": "string",
     "description": "string",
     "severity": "Low" | "Medium" | "High",
-    "source_reference": "string with quote or management source"
+    "source_reference": "string quote"
   }}
 ]
 
@@ -76,4 +76,14 @@ def extract_risks(chunks):
                     return data
             except:
                 pass
+        
+        # If it completely failed and outputted text, capture it as a single general risk
+        if len(text_resp) > 20:
+            return [{
+                "risk_name": "General Risk Profile",
+                "description": text_resp.strip(),
+                "severity": "Medium",
+                "source_reference": "Analyzed from text structure"
+            }]
+            
     return []

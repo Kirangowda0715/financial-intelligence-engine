@@ -4,25 +4,55 @@
 
 ---
 
-## ✨ What It Does
+## 🎓 The Codebase Masterclass (Learning Guide)
 
-Upload any earnings call PDF and instantly get:
+This repository is designed not just as a powerful product, but as an educational blueprint for building production-grade **Retrieval-Augmented Generation (RAG)** systems. If you are learning AI Engineering, study the codebase systematically through these 8 modules:
+
+### 📖 The Extraction Layer
+- **Module 1: PDF Ingestion (`app/pdf_ingestion.py`)** 
+  *Concepts:* Extracting unstructured raw text from binary PDFs using `pdfplumber`, filtering out noise, and setting up strict quality gates.
+- **Module 2: Structure Parsing (`app/structure_parser.py`)**
+  *Concepts:* Using heuristic state-machines to analyze NLP semantics, auto-tagging speakers, and differentiating "Management Remarks" from "Analyst Q&A".
+
+### 🧠 The Mathematical Layer
+- **Module 3: Text Chunking (`app/chunking.py`)**
+  *Concepts:* The math behind LLM token limits and the critical need for "Overlapping Sliding Windows" to prevent context loss across paragraph boundaries.
+- **Module 4: Vector Embeddings (`app/embedding_store.py`)**
+  *Concepts:* Transforming text into 384-dimensional conceptual space using `SentenceTransformers`, and utilizing ChromaDB as a stateful, persistent vector search engine.
+- **Module 5: Semantic Retrieval (`app/retrieval.py`)**
+  *Concepts:* Executing mathematical nearest-neighbor searches (Cosine Similarity) coupled with strict metadata filtering (by Company, Quarter, and Section).
+
+### 🤖 The Intelligence Layer
+- **Module 6: LLM Orchestration (`app/answer_generator.py` & extractors)**
+  *Concepts:* Defensive Prompt Engineering. Enforcing JSON output schemas, designing specialized LLM Personas, and building aggressive fallback parsers to handle LLM format hallucinations.
+  
+### 🌐 The Integration & Product Layer
+- **Module 7: API Design (`app/main.py`)**
+  *Concepts:* Building a highly asynchronous, fault-tolerant REST API using FastAPI. Understanding stateful batch file uploads vs stateless GET requests.
+- **Module 8: UI & State Management (`streamlit_app.py`)**
+  *Concepts:* Pushing Streamlit to its limits with custom CSS (Claude/Grok aesthetics), and building a lightweight persistent database (`user_state.json`) to bypass Streamlit's stateless page reloads.
+
+---
+
+## ✨ Features
+
+Upload earnings call PDFs (even in batches!) and instantly get:
 
 | Feature | Description |
 |---|---|
-| 📈 **Investor Summary** | Auto-generated on upload — key highlights from the transcript |
-| 📋 **Executive Summary** | Deep strategic analysis with a Buy / Watch / Avoid decision |
-| 📊 **Key Metrics** | Revenue growth, margins, EBITDA, guidance, segment performance |
-| ⚠️ **Risk Profile** | Explicit + implicit risks ranked by severity (High / Medium / Low) |
-| 💬 **Q&A Chat** | Ask any question about your documents — backed by semantic search |
-| 🕘 **Chat History** | All research sessions saved permanently — resume anytime |
+| 📈 **Unified Batch Summary** | Auto-synthesized analysis of all uploaded documents at once. |
+| 📋 **Executive Summary** | Deep qualitative strategic analysis focusing on business fundamentals. |
+| 📊 **Key Metrics** | Auto-extracted JSON tables for revenue growth, margins, and guidance. |
+| ⚠️ **Risk Profile** | Explicit + implicit risks ranked by severity (High / Medium / Low). |
+| 💬 **Q&A Chat** | Ask any question about your documents — backed by semantic search. |
+| 🕘 **Persistent Chat** | All research sessions saved permanently — resume anytime. |
 
 ---
 
 ## 🖼️ Architecture
 
-```
-PDF Upload
+```text
+PDF Upload (Batch)
     │
     ▼
 FastAPI Backend (port 8000)
@@ -34,173 +64,89 @@ FastAPI Backend (port 8000)
     ├─► Vector Store          (ChromaDB — persistent local storage)
     │
     ├─► /query/               → Semantic retrieval + Ollama LLM answer
-    ├─► /advanced-summary/    → Executive summary + investor decision
-    ├─► /metrics/             → Structured JSON financial metrics
+    ├─► /advanced-summary/    → Executive fundamental summary
+    ├─► /metrics/             → Structured JSON financial exacts
     └─► /risks/               → Risk profiling with severity scores
 
 Streamlit Frontend (port 8501)
     │
     ├─► Unified Chat Interface (Claude/Grok dark UI)
-    ├─► Sidebar: Upload PDFs (batch)
-    ├─► Sidebar: Chat History (persistent sessions)
+    ├─► Sidebar: Upload PDFs (batch processing)
+    ├─► Toolbar: 1-Click extraction algorithms
     └─► Local JSON state: data/user_state.json
 ```
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | Streamlit + Custom CSS (Claude/Grok dark mode) |
-| **Backend** | FastAPI + Uvicorn |
-| **LLM** | Ollama (`llama3:latest`) — runs locally |
-| **Embeddings** | SentenceTransformers (`all-MiniLM-L6-v2`) |
-| **Vector DB** | ChromaDB (persistent local storage) |
-| **PDF Parsing** | pdfplumber |
-| **State** | JSON file (`data/user_state.json`) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Python 3.10+
-- [Ollama](https://ollama.com/download) installed and running
-- `llama3` model pulled in Ollama
+- [Ollama](https://ollama.com/download) running locally with the `llama3` model pulled (`ollama pull llama3`)
 
-### 1. Clone the Repository
-
+### 1. Installation
 ```bash
 git clone https://github.com/Kirangowda0715/financial-intelligence-engine.git
 cd financial-intelligence-engine
-```
 
-### 2. Create and Activate Virtual Environment
-
-```bash
+# Create & activate environment
 python -m venv venv
+.\venv\Scripts\activate   # Windows
+# source venv/bin/activate # Mac/Linux
 
-# Windows
-.\venv\Scripts\activate
-
-# Mac / Linux
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 4. Pull the LLM Model
+### 2. Running the System
+You need **3 terminals** running simultaneously:
 
-```bash
-ollama pull llama3
-```
-
----
-
-## ▶️ Running the Project
-
-You need **3 terminals** open simultaneously:
-
-### Terminal 1 — Start LLM (Ollama)
+**Terminal 1 — Local Brain**
 ```bash
 ollama serve
 ```
 
-### Terminal 2 — Start Backend (FastAPI)
+**Terminal 2 — Traffic Cop (Backend)**
 ```bash
 .\venv\Scripts\activate
 uvicorn app.main:app --reload
 ```
 
-### Terminal 3 — Start Frontend (Streamlit)
+**Terminal 3 — Frontend UI**
 ```bash
 .\venv\Scripts\activate
 streamlit run streamlit_app.py
 ```
 
-### Access the App
-
-| Service | URL |
-|---|---|
-| 🖥️ Streamlit App | http://localhost:8501 |
-| ⚡ FastAPI Docs | http://localhost:8000/docs |
-| 🤖 Ollama API | http://localhost:11434 |
-
----
-
-## 📖 How to Use
-
-1. **Upload a PDF** — Use the sidebar to upload one or more earnings call PDFs. Enter the company name and quarter, then click **"⚡ Process Batch"**. The investor summary appears in the chat automatically.
-
-2. **Run Analysis** — Use the toolbar buttons at the top of the chat:
-   - **📝 Summary** → Executive decision analysis
-   - **📊 Metrics** → Revenue, margin, guidance table
-   - **⚠️ Risks** → Ranked risk profile
-
-3. **Ask Questions** — Type any question in the chat input at the bottom. The system will semantically search your documents and generate a structured analyst-style answer with source citations.
-
-4. **Switch Research Sessions** — Click **"➕ New Chat"** in the sidebar to start a fresh session. Click any past session to resume your previous research exactly where you left off.
+### 3. Access
+Go to **http://localhost:8501** in your browser.
 
 ---
 
 ## 📁 Project Structure
 
-```
+```text
 financial-intelligence-engine/
 │
-├── app/
-│   ├── main.py                # FastAPI routes
-│   ├── pdf_ingestion.py       # PDF text extraction
-│   ├── structure_parser.py    # Transcript segmentation
-│   ├── chunking.py            # Text chunking
-│   ├── embedding_store.py     # ChromaDB + embeddings
-│   ├── retrieval.py           # Semantic search
-│   ├── answer_generator.py    # LLM Q&A generation
-│   ├── investor_summary.py    # Base summary
-│   ├── advanced_summary.py    # Executive summary + decision
-│   ├── metrics_extractor.py   # Financial metrics JSON
-│   └── risk_extractor.py      # Risk profiling
+├── app/                       # Core backend modules
+│   ├── main.py                
+│   ├── pdf_ingestion.py       
+│   ├── structure_parser.py    
+│   ├── chunking.py            
+│   ├── embedding_store.py     
+│   ├── retrieval.py           
+│   ├── answer_generator.py    
+│   ├── investor_summary.py    
+│   ├── advanced_summary.py    
+│   ├── metrics_extractor.py   
+│   └── risk_extractor.py      
 │
-├── data/                      # Uploaded PDFs + user_state.json
-├── chroma_storage/            # Persistent vector embeddings
-├── streamlit_app.py           # Frontend UI
+├── data/                      # Auto-created: user_state.json
+├── chroma_storage/            # Auto-created: Persistent embeddings
+├── streamlit_app.py           # Unified Frontend UI
 ├── requirements.txt
 └── README.md
 ```
-
----
-
-## ⚙️ Environment Notes
-
-- `data/` and `chroma_storage/` are **gitignored** — your uploaded documents and embeddings stay private.
-- State is saved to `data/user_state.json` automatically — no database setup needed.
-- The system is designed for **local, private use** — no data leaves your machine.
-
----
-
-## 🧠 How the Q&A Works
-
-1. Your question is embedded using `all-MiniLM-L6-v2`
-2. ChromaDB retrieves the top 8 most semantically relevant chunks from your uploaded transcripts
-3. The chunks are assembled into a structured prompt with source context
-4. Ollama (`llama3`) generates a structured analyst response covering: Key Insights, Management Commentary, Key Drivers, Risks, and Analyst Perspective
-5. Source citations are attached to every answer
-
----
-
-## 🗺️ Roadmap
-
-- [ ] **Phase 3:** Multi-quarter trend comparison (revenue, margins, tone)
-- [ ] **Phase 3:** Q&A section deep-analysis (analyst sentiment scoring)
-- [ ] **Phase 4:** Cloud LLM support (Groq / Gemini API fallback)
-- [ ] **Phase 4:** Export research report as PDF/Word
-- [ ] **Phase 5:** Multi-company cross-analysis dashboard
 
 ---
 
@@ -208,6 +154,4 @@ financial-intelligence-engine/
 
 MIT License — free to use, modify, and distribute.
 
----
-
-*Built with ❤️ for financial research automation.*
+*Built with ❤️ for financial research automation & AI Engineering education.*

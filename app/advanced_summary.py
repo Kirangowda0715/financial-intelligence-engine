@@ -5,7 +5,7 @@ MODEL = "llama3:latest"
 
 def build_advanced_summary_prompt(context):
     return f"""
-You are a senior hedge fund manager acting as a long-term investor.
+You are a senior fundamental analyst.
 Generate a highly actionable executive summary based on the provided earnings call transcript.
 
 Sections required:
@@ -13,14 +13,13 @@ Sections required:
 2. Growth Drivers (Bullet points)
 3. Risks (Bullet points)
 4. Outlook (Brief summary)
-5. Investor Decision
+5. Business Thesis
 
-For "Investor Decision", assess:
+For "Business Thesis", assess:
 - Business quality
-- Growth potential
-- Risks
-And give a final decision: Buy, Watch, or Avoid.
-Explain the reasoning clearly with evidence.
+- Execution of strategy
+- Fundamental upside vs downside risks
+Synthesize the thesis clearly with evidence. Do not give trading advice.
 
 Rule: Limit the entire response to approximately 200 words. Keep it strictly focused and actionable. Do not hallucinate.
 

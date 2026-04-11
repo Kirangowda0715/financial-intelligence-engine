@@ -10,7 +10,9 @@ def build_metrics_prompt(context):
 You are an AI financial data extractor.
 Extract key financial metrics from the provided transcript.
 
-Output structured JSON ONLY with no backticks, markdown, or conversational text. Look for:
+CRITICAL INSTRUCTION: Output RAW JSON ONLY. Do NOT wrap the JSON in ```json blocks. Do NOT output any conversational text.
+
+Look for:
 - Revenue growth %
 - EBITDA or margins
 - Explicit Guidance
@@ -53,21 +55,31 @@ def extract_financial_metrics(chunks):
 
     text_resp = response.json()["response"]
     
-    # Try parsing safely, fallback if format is broken
+    # Safely parse and unwrap the JSON
+    parsed_data = {}
     try:
-        return json.loads(text_resp)
+        data = json.loads(text_resp)
+        # Unwrap if LLM wrapped in {"metrics": {...}}
+        if isinstance(data, dict):
+            if "metrics" in data and isinstance(data["metrics"], dict):
+                parsed_data = data["metrics"]
+            elif "financial_metrics" in data and isinstance(data["financial_metrics"], dict):
+                parsed_data = data["financial_metrics"]
+            else:
+                parsed_data = data
     except json.JSONDecodeError:
-        # Extract json using regex if LLM added markdown around it
         match = re.search(r'\{.*\}', text_resp, re.DOTALL)
         if match:
             try:
-                return json.loads(match.group(0))
+                data = json.loads(match.group(0))
+                parsed_data = data.get("metrics", data)
             except:
                 pass
     
+    # Ensure all required keys exist
     return {
-        "revenue_growth": "",
-        "margin": "",
-        "guidance": "",
-        "segments": []
+        "revenue_growth": parsed_data.get("revenue_growth", parsed_data.get("Revenue Growth", "")),
+        "margin": parsed_data.get("margin", parsed_data.get("Margin", "")),
+        "guidance": parsed_data.get("guidance", parsed_data.get("Guidance", "")),
+        "segments": parsed_data.get("segments", parsed_data.get("Segments", []))
     }

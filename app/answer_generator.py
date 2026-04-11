@@ -40,7 +40,8 @@ Provide structured output:
 5. Analyst Perspective
 
 Rules:
-- Be concise and sharp
+- Be detailed and comprehensive
+- Extract accurate numbers when available
 - Do NOT hallucinate
 - If data is missing in the context, say "Not mentioned"
 - Always cite sources like [Source 1]

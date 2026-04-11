@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 import shutil
 import os
+from typing import List
 
 from app.pdf_ingestion import extract_pdf_content
 from app.structure_parser import parse_transcript_structure
@@ -21,38 +22,49 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/upload-pdf/")
 async def upload_pdf(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     company: str = Form(...),
     quarter: str = Form(...)
 ):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    all_chunks = []
+    document_ids = []
+    total_pages = 0
+    total_segments = 0
 
     try:
-        result = extract_pdf_content(file_path)
+        for file in files:
+            file_path = os.path.join(UPLOAD_DIR, file.filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
 
-        merged_text = "\n".join([p["text"] for p in result["pages"]])
+            result = extract_pdf_content(file_path)
+            merged_text = "\n".join([p["text"] for p in result["pages"]])
+            segments = parse_transcript_structure(merged_text)
+            chunks = chunk_segments(segments)
 
-        segments = parse_transcript_structure(merged_text)
-        chunks = chunk_segments(segments)
+            if not chunks:
+                continue
 
-        document_id = store_chunks(
-            chunks,
-            company_name=company,
-            quarter=quarter
-        )
+            doc_id = store_chunks(chunks, company_name=company, quarter=quarter)
 
-        summary = generate_investor_summary(chunks)
+            document_ids.append(doc_id)
+            all_chunks.extend(chunks[:12])
+            
+            total_pages += result["total_pages"]
+            total_segments += len(segments)
+
+        if not document_ids:
+            return {"error": "No documents processed"}
+
+        summary = generate_investor_summary(all_chunks)
 
         return {
-            "document_id": document_id,
+            "document_ids": document_ids,
             "company": company,
             "quarter": quarter,
-            "total_pages": result["total_pages"],
-            "total_segments": len(segments),
-            "total_chunks": len(chunks),
+            "total_pages": total_pages,
+            "total_segments": total_segments,
+            "total_chunks": len(all_chunks),
             "investor_summary": summary
         }
 
@@ -120,9 +132,13 @@ async def query_documents(
 
 
 @app.get("/advanced-summary/")
-async def advanced_summary_endpoint(document_id: str):
+async def advanced_summary_endpoint(document_ids: str):
     try:
-        chunks = get_document_chunks(document_id, limit=12)
+        doc_idx = document_ids.split(",")
+        chunks = []
+        for d in doc_idx:
+            chunks.extend(get_document_chunks(d, limit=6))
+            
         if not chunks:
             return {"error": "Document not found or empty"}
         summary = generate_advanced_summary(chunks)
@@ -132,9 +148,13 @@ async def advanced_summary_endpoint(document_id: str):
 
 
 @app.get("/metrics/")
-async def metrics_endpoint(document_id: str):
+async def metrics_endpoint(document_ids: str):
     try:
-        chunks = get_document_chunks(document_id, limit=20)
+        doc_idx = document_ids.split(",")
+        chunks = []
+        for d in doc_idx:
+            chunks.extend(get_document_chunks(d, limit=8))
+            
         if not chunks:
             return {"error": "Document not found or empty"}
         metrics = extract_financial_metrics(chunks)
@@ -144,9 +164,13 @@ async def metrics_endpoint(document_id: str):
 
 
 @app.get("/risks/")
-async def risks_endpoint(document_id: str):
+async def risks_endpoint(document_ids: str):
     try:
-        chunks = get_document_chunks(document_id, limit=15)
+        doc_idx = document_ids.split(",")
+        chunks = []
+        for d in doc_idx:
+            chunks.extend(get_document_chunks(d, limit=8))
+            
         if not chunks:
             return {"error": "Document not found or empty"}
         risks = extract_risks(chunks)
